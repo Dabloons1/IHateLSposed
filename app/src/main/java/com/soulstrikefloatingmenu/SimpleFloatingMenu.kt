@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
+import de.robv.android.xposed.XposedBridge
 
 class SimpleFloatingMenu(private val context: Context) {
     private var windowManager: WindowManager? = null
@@ -106,132 +107,158 @@ class SimpleFloatingMenu(private val context: Context) {
             setTextColor(0xFFFFFFFF.toInt())
             gravity = Gravity.CENTER
         }
+        layout.addView(title)
 
         // Collapsed view (just a button)
         val collapsedView = Button(context).apply {
-            text = "Soul Strike Menu"
+            text = "⚙️ Menu"
+            setBackgroundColor(0x80000000.toInt())
+            setTextColor(0xFFFFFFFF.toInt())
             setOnClickListener { expandMenu() }
         }
 
-        // Expanded view
+        // Expanded view (full menu)
         val expandedView = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
         }
 
-        // God Mode checkbox
-        val godModeCheck = CheckBox(context).apply {
+        // God Mode toggle
+        val godModeCheckBox = CheckBox(context).apply {
             text = "God Mode"
+            setTextColor(0xFFFFFFFF.toInt())
+            isChecked = godMode
             setOnCheckedChangeListener { _, isChecked ->
                 godMode = isChecked
-                Toast.makeText(context, "God Mode: ${if (isChecked) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
+                if (isChecked) applyFeature("God Mode")
             }
         }
+        expandedView.addView(godModeCheckBox)
 
-        // Infinite Ammo checkbox
-        val infiniteAmmoCheck = CheckBox(context).apply {
+        // Infinite Ammo toggle
+        val infiniteAmmoCheckBox = CheckBox(context).apply {
             text = "Infinite Ammo"
+            setTextColor(0xFFFFFFFF.toInt())
+            isChecked = infiniteAmmo
             setOnCheckedChangeListener { _, isChecked ->
                 infiniteAmmo = isChecked
-                Toast.makeText(context, "Infinite Ammo: ${if (isChecked) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
+                if (isChecked) applyFeature("Infinite Ammo")
             }
         }
+        expandedView.addView(infiniteAmmoCheckBox)
 
-        // Auto Aim checkbox
-        val autoAimCheck = CheckBox(context).apply {
+        // Auto Aim toggle
+        val autoAimCheckBox = CheckBox(context).apply {
             text = "Auto Aim"
+            setTextColor(0xFFFFFFFF.toInt())
+            isChecked = autoAim
             setOnCheckedChangeListener { _, isChecked ->
                 autoAim = isChecked
-                Toast.makeText(context, "Auto Aim: ${if (isChecked) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
+                if (isChecked) applyFeature("Auto Aim")
             }
         }
+        expandedView.addView(autoAimCheckBox)
 
-        // Show FPS checkbox
-        val showFPSCheck = CheckBox(context).apply {
+        // Show FPS toggle
+        val showFPSCheckBox = CheckBox(context).apply {
             text = "Show FPS"
+            setTextColor(0xFFFFFFFF.toInt())
             isChecked = showFPS
             setOnCheckedChangeListener { _, isChecked ->
                 showFPS = isChecked
-                Toast.makeText(context, "Show FPS: ${if (isChecked) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
+                if (isChecked) applyFeature("Show FPS")
             }
         }
+        expandedView.addView(showFPSCheckBox)
 
-        // Player Speed slider
+        // Speed slider
         val speedLabel = TextView(context).apply {
-            text = "Player Speed: $playerSpeed"
+            text = "Player Speed: ${playerSpeed.toInt()}x"
             setTextColor(0xFFFFFFFF.toInt())
         }
+        expandedView.addView(speedLabel)
 
         val speedSeekBar = SeekBar(context).apply {
-            max = 500 // 0.5x to 5.0x speed
-            progress = 100 // 1.0x speed
+            max = 300 // 0.5x to 3.0x speed
+            progress = ((playerSpeed - 0.5f) * 100).toInt()
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    playerSpeed = progress / 100.0f
-                    speedLabel.text = "Player Speed: $playerSpeed"
+                    playerSpeed = (progress / 100f) + 0.5f
+                    speedLabel.text = "Player Speed: ${playerSpeed.toInt()}x"
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                    applyFeature("Speed: ${playerSpeed.toInt()}x")
+                }
+            })
+        }
+        expandedView.addView(speedSeekBar)
+
+        // Menu Alpha slider
+        val alphaLabel = TextView(context).apply {
+            text = "Menu Alpha: ${(menuAlpha * 100).toInt()}%"
+            setTextColor(0xFFFFFFFF.toInt())
+        }
+        expandedView.addView(alphaLabel)
+
+        val alphaSeekBar = SeekBar(context).apply {
+            max = 100
+            progress = (menuAlpha * 100).toInt()
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    menuAlpha = progress / 100f
+                    alphaLabel.text = "Menu Alpha: ${progress}%"
+                    layout.alpha = menuAlpha
                 }
                 override fun onStartTrackingTouch(seekBar: SeekBar?) {}
                 override fun onStopTrackingTouch(seekBar: SeekBar?) {}
             })
         }
+        expandedView.addView(alphaSeekBar)
 
-        // Action buttons
-        val applyButton = Button(context).apply {
-            text = "Apply All Changes"
-            setOnClickListener {
-                applyAllChanges()
-            }
+        // Apply All button
+        val applyAllButton = Button(context).apply {
+            text = "Apply All"
+            setBackgroundColor(0x8000FF00.toInt())
+            setTextColor(0xFFFFFFFF.toInt())
+            setOnClickListener { applyAllFeatures() }
         }
+        expandedView.addView(applyAllButton)
 
+        // Reset button
         val resetButton = Button(context).apply {
-            text = "Reset All Settings"
-            setOnClickListener {
-                resetAllSettings()
-            }
+            text = "Reset All"
+            setBackgroundColor(0x80FF0000.toInt())
+            setTextColor(0xFFFFFFFF.toInt())
+            setOnClickListener { resetAllSettings() }
         }
-
-        val closeButton = Button(context).apply {
-            text = "Close Menu"
-            setOnClickListener {
-                collapseMenu()
-            }
-        }
-
-        val hideButton = Button(context).apply {
-            text = "Hide Menu"
-            setOnClickListener {
-                hide()
-            }
-        }
-
-        // Add all views to expanded layout
-        expandedView.addView(title)
-        expandedView.addView(godModeCheck)
-        expandedView.addView(infiniteAmmoCheck)
-        expandedView.addView(autoAimCheck)
-        expandedView.addView(showFPSCheck)
-        expandedView.addView(speedLabel)
-        expandedView.addView(speedSeekBar)
-        expandedView.addView(applyButton)
         expandedView.addView(resetButton)
-        expandedView.addView(closeButton)
-        expandedView.addView(hideButton)
 
-        // Add views to main layout
+        // Close button
+        val closeButton = Button(context).apply {
+            text = "Close"
+            setBackgroundColor(0x80000000.toInt())
+            setTextColor(0xFFFFFFFF.toInt())
+            setOnClickListener { collapseMenu() }
+        }
+        expandedView.addView(closeButton)
+
+        // Add both views to main layout
         layout.addView(collapsedView)
         layout.addView(expandedView)
 
         // Store references for later use
-        layout.tag = mapOf(
+        @Suppress("UNCHECKED_CAST")
+        val views = mapOf(
             "collapsed" to collapsedView,
             "expanded" to expandedView,
-            "godMode" to godModeCheck,
-            "infiniteAmmo" to infiniteAmmoCheck,
-            "autoAim" to autoAimCheck,
-            "showFPS" to showFPSCheck,
-            "speedLabel" to speedLabel,
+            "godMode" to godModeCheckBox,
+            "infiniteAmmo" to infiniteAmmoCheckBox,
+            "autoAim" to autoAimCheckBox,
+            "showFPS" to showFPSCheckBox,
             "speedSeekBar" to speedSeekBar
         )
+        layout.tag = views
 
         return layout
     }
@@ -262,8 +289,15 @@ class SimpleFloatingMenu(private val context: Context) {
         isExpanded = false
     }
 
-    private fun applyAllChanges() {
-        // Apply all enabled features
+    private fun applyFeature(feature: String) {
+        XposedBridge.log("SoulStrikeFloatingMenu: Applying feature: $feature")
+        // Here you would implement the actual game modifications
+        // For now, just log the feature
+    }
+
+    private fun applyAllFeatures() {
+        XposedBridge.log("SoulStrikeFloatingMenu: Applying all features")
+        
         if (godMode) applyFeature("God Mode")
         if (infiniteAmmo) applyFeature("Infinite Ammo")
         if (autoAim) applyFeature("Auto Aim")
@@ -284,44 +318,13 @@ class SimpleFloatingMenu(private val context: Context) {
         (views["showFPS"] as? CheckBox)?.isChecked = true
         (views["speedSeekBar"] as? SeekBar)?.progress = 100
         
+        // Reset variables
         godMode = false
         infiniteAmmo = false
         autoAim = false
         showFPS = true
         playerSpeed = 1.0f
         
-        Toast.makeText(context, "All settings reset!", Toast.LENGTH_SHORT).show()
-    }
-    
-    private fun applyFeature(featureName: String) {
-        // Here you would implement the actual game modifications
-        // This is where you'd hook into game functions and apply changes
-        when (featureName) {
-            "God Mode" -> {
-                // Hook into health/damage functions
-                // Set health to maximum or make damage 0
-            }
-            "Infinite Ammo" -> {
-                // Hook into ammo consumption functions
-                // Prevent ammo from decreasing
-            }
-            "Auto Aim" -> {
-                // Hook into aiming functions
-                // Automatically target nearest enemy
-            }
-            "Show FPS" -> {
-                // Hook into rendering functions
-                // Display FPS counter
-            }
-        }
-    }
-
-    fun hide() {
-        try {
-            windowManager?.removeView(floatingView)
-            floatingView = null
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        Toast.makeText(context, "Settings reset!", Toast.LENGTH_SHORT).show()
     }
 }
