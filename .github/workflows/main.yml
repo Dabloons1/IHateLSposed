@@ -62,6 +62,7 @@ jobs:
 
     - name: Create Release
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      continue-on-error: true
       uses: softprops/action-gh-release@v1
       with:
         files: app/build/outputs/apk/**/*.apk
@@ -89,3 +90,15 @@ jobs:
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Release Status
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ Build completed successfully!"
+          echo "📱 APK files are available in the artifacts section"
+          echo "⚠️  GitHub release creation may have failed due to permissions"
+          echo "💡 You can manually create a release and upload the APK from the artifacts"
+        else
+          echo "❌ Build failed"
+        fi
