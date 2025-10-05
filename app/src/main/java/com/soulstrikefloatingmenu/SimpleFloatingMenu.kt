@@ -23,6 +23,14 @@ class SimpleFloatingMenu(private val context: Context) {
 
     fun show() {
         try {
+            // Check if we have the required permission
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                if (!android.provider.Settings.canDrawOverlays(context)) {
+                    XposedBridge.log("SoulStrikeFloatingMenu: No overlay permission - cannot show floating window")
+                    return
+                }
+            }
+            
             windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
             
             val inflater = LayoutInflater.from(context)
@@ -32,7 +40,7 @@ class SimpleFloatingMenu(private val context: Context) {
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
             )
             
@@ -40,13 +48,51 @@ class SimpleFloatingMenu(private val context: Context) {
             params.x = 100
             params.y = 100
             
-            windowManager?.addView(floatingView, params)
+            // Ensure we're on the UI thread
+            if (context is android.app.Activity) {
+                (context as android.app.Activity).runOnUiThread {
+                    try {
+                        windowManager?.addView(floatingView, params)
+                        XposedBridge.log("SoulStrikeFloatingMenu: Floating window shown successfully")
+                    } catch (e: Exception) {
+                        XposedBridge.log("SoulStrikeFloatingMenu: Error adding view: ${e.message}")
+                        e.printStackTrace()
+                    }
+                }
+            } else {
+                // For non-Activity contexts, use Handler
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    try {
+                        windowManager?.addView(floatingView, params)
+                        XposedBridge.log("SoulStrikeFloatingMenu: Floating window shown successfully")
+                    } catch (e: Exception) {
+                        XposedBridge.log("SoulStrikeFloatingMenu: Error adding view: ${e.message}")
+                        e.printStackTrace()
+                    }
+                }
+            }
         } catch (e: Exception) {
+            XposedBridge.log("SoulStrikeFloatingMenu: Error in show(): ${e.message}")
+            e.printStackTrace()
+        }
+    }
+    
+    fun hide() {
+        try {
+            if (floatingView != null && windowManager != null) {
+                windowManager?.removeView(floatingView)
+                floatingView = null
+                XposedBridge.log("SoulStrikeFloatingMenu: Floating window hidden")
+            }
+        } catch (e: Exception) {
+            XposedBridge.log("SoulStrikeFloatingMenu: Error hiding window: ${e.message}")
             e.printStackTrace()
         }
     }
 
     private fun createFloatingView(@Suppress("UNUSED_PARAMETER") inflater: LayoutInflater): View {
+        XposedBridge.log("SoulStrikeFloatingMenu: Creating floating view")
+        
         val layout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(0x80000000.toInt()) // Semi-transparent black

@@ -71,6 +71,27 @@ class HookEntry : IXposedHookLoadPackage {
             object : XC_MethodHook() {
                 override fun afterHookedMethod(param: MethodHookParam) {
                     XposedBridge.log("SoulStrikeFloatingMenu: Application onCreate hooked")
+                    val app = param.thisObject as android.app.Application
+                    showFloatingMenu(app)
+                }
+            }
+        )
+        
+        // Hook any activity that might be the main game activity
+        XposedHelpers.findAndHookMethod(
+            "android.app.Activity",
+            lpparam.classLoader,
+            "onResume",
+            object : XC_MethodHook() {
+                override fun afterHookedMethod(param: MethodHookParam) {
+                    val activity = param.thisObject as Activity
+                    if (activity.javaClass.name.contains("MainActivity") || 
+                        activity.javaClass.name.contains("GameActivity") ||
+                        activity.javaClass.name.contains("UnityPlayerActivity") ||
+                        activity.javaClass.name.contains("SoulStrike")) {
+                        XposedBridge.log("SoulStrikeFloatingMenu: Game activity resumed, showing floating menu")
+                        showFloatingMenu(activity)
+                    }
                 }
             }
         )
@@ -82,12 +103,26 @@ class HookEntry : IXposedHookLoadPackage {
     private fun showFloatingMenu(context: Context) {
         try {
             if (floatingMenu == null) {
-                floatingMenu = SimpleFloatingMenu(context)
-                floatingMenu?.show()
-                XposedBridge.log("SoulStrikeFloatingMenu: Floating menu created and shown")
+                XposedBridge.log("SoulStrikeFloatingMenu: Creating floating menu for context: ${context.javaClass.name}")
+                
+                // Ensure we have a valid context
+                val appContext = context.applicationContext ?: context
+                floatingMenu = SimpleFloatingMenu(appContext)
+                
+                // Add a small delay to ensure the activity is fully initialized
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    try {
+                        floatingMenu?.show()
+                        XposedBridge.log("SoulStrikeFloatingMenu: Floating menu created and shown")
+                    } catch (e: Exception) {
+                        XposedBridge.log("SoulStrikeFloatingMenu: Error showing floating menu: ${e.message}")
+                        e.printStackTrace()
+                    }
+                }, 1000) // 1 second delay
             }
         } catch (e: Exception) {
-            XposedBridge.log("SoulStrikeFloatingMenu: Error showing floating menu: ${e.message}")
+            XposedBridge.log("SoulStrikeFloatingMenu: Error creating floating menu: ${e.message}")
+            e.printStackTrace()
         }
     }
 
