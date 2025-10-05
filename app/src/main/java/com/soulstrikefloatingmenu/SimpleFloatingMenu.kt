@@ -192,6 +192,7 @@ class SimpleFloatingMenu(private val context: Context) {
 
     private fun expandMenu() {
         val layout = floatingView as? LinearLayout ?: return
+        @Suppress("UNCHECKED_CAST")
         val views = layout.tag as? Map<String, View> ?: return
         
         val collapsedView = views["collapsed"]
@@ -204,6 +205,7 @@ class SimpleFloatingMenu(private val context: Context) {
 
     private fun collapseMenu() {
         val layout = floatingView as? LinearLayout ?: return
+        @Suppress("UNCHECKED_CAST")
         val views = layout.tag as? Map<String, View> ?: return
         
         val collapsedView = views["collapsed"]
@@ -226,6 +228,7 @@ class SimpleFloatingMenu(private val context: Context) {
     
     private fun resetAllSettings() {
         val layout = floatingView as? LinearLayout ?: return
+        @Suppress("UNCHECKED_CAST")
         val views = layout.tag as? Map<String, View> ?: return
         
         // Reset all toggles
